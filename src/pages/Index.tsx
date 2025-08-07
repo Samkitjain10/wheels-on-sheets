@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { HamburgerMenu } from "@/components/HamburgerMenu";
 import { DriverCard } from "@/components/DriverCard";
 import { TaskForm } from "@/components/TaskForm";
 import { EtaView } from "@/components/EtaView";
@@ -119,54 +120,58 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Wedding Logistics Dashboard
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Manage drivers, tasks, and guest coordination seamlessly
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-subtle">
+      <HamburgerMenu />
+      
+      <div className="p-6 pl-20">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              Wedding Logistics Dashboard
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              Manage drivers, tasks, and guest coordination seamlessly
+            </p>
+          </div>
 
-        {/* Main Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            {/* Driver Overview */}
-            <div className="space-y-4">
-              <h2 className="text-2xl font-semibold flex items-center gap-2">
-                Driver Overview
-              </h2>
+          {/* Main Dashboard Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Driver Overview */}
               <div className="space-y-4">
-                {drivers.map((driver) => (
-                  <DriverCard key={driver.id} driver={driver} />
-                ))}
+                <h2 className="text-2xl font-semibold flex items-center gap-2">
+                  Driver Overview
+                </h2>
+                <div className="space-y-4">
+                  {drivers.map((driver) => (
+                    <DriverCard key={driver.id} driver={driver} />
+                  ))}
+                </div>
               </div>
+
+              {/* Task Manager */}
+              <TaskForm drivers={drivers} onTaskCreate={handleTaskCreate} />
             </div>
 
-            {/* Task Manager */}
-            <TaskForm drivers={drivers} onTaskCreate={handleTaskCreate} />
-          </div>
+            {/* Middle Column */}
+            <div className="space-y-6">
+              {/* Live ETA View */}
+              <EtaView activeTasks={activeTasks} />
+              
+              {/* Train Arrivals */}
+              <TrainArrivals arrivals={mockTrainArrivals} />
+            </div>
 
-          {/* Middle Column */}
-          <div className="space-y-6">
-            {/* Live ETA View */}
-            <EtaView activeTasks={activeTasks} />
-            
-            {/* Train Arrivals */}
-            <TrainArrivals arrivals={mockTrainArrivals} />
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* AI Assistant */}
-            <AiAssistant />
-            
-            {/* Message Log */}
-            <MessageLog messages={messages} />
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* AI Assistant */}
+              <AiAssistant />
+              
+              {/* Message Log */}
+              <MessageLog messages={messages} />
+            </div>
           </div>
         </div>
       </div>
