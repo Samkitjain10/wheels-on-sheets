@@ -139,14 +139,14 @@ export const TaskForm = ({ drivers, onTaskCreate }: TaskFormProps) => {
           <div className="space-y-2">
             <Label htmlFor="assignTo">Assign to Driver (Optional)</Label>
             <Select 
-              value={formData.assignTo || ''} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, assignTo: value }))}
+              value={formData.assignTo || 'auto-assign'} 
+              onValueChange={(value) => setFormData(prev => ({ ...prev, assignTo: value === 'auto-assign' ? undefined : value }))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Auto-assign or select driver" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Auto-assign</SelectItem>
+                <SelectItem value="auto-assign">Auto-assign</SelectItem>
                 {drivers.filter(d => d.status === 'Available').map(driver => (
                   <SelectItem key={driver.id} value={driver.id}>
                     {driver.name}
