@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DriverCard } from "@/components/DriverCard";
 import { EtaView } from "@/components/EtaView";
+import { useDrivers } from "@/hooks/useDrivers";
 
 // Mock data for demonstration
 const mockDrivers = [
@@ -57,13 +58,36 @@ const mockActiveTasks = [
 ];
 
 const Index = () => {
-  const [drivers] = useState(mockDrivers);
+  const { drivers, loading, error } = useDrivers();
   const [activeTasks] = useState(mockActiveTasks);
 
   const availableDrivers = drivers.filter(d => d.status === 'Available').length;
   const busyDrivers = drivers.filter(d => d.status === 'Busy').length;
   const totalTasks = activeTasks.length;
   const totalCapacity = drivers.reduce((sum, d) => sum + d.carCapacity, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-semibold mb-2">Loading drivers...</div>
+          <div className="text-muted-foreground">Fetching data from Google Sheets</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-semibold mb-2 text-red-500">Error loading drivers</div>
+          <div className="text-muted-foreground">{error}</div>
+          <div className="text-sm text-muted-foreground mt-2">Check your Google Sheets connection</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle">

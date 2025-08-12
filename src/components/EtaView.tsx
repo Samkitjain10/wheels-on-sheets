@@ -10,10 +10,13 @@ interface ActiveTask {
   location: string;
   scheduledTime: string;
   eta: string;
-  status: 'On Time' | 'Delayed' | 'At Risk';
+  status: 'On Time' | 'Delayed' | 'At Risk' | 'Pending';
   guestCount?: number;
   itemDescription?: string;
   mapsUrl: string;
+  priority?: string;
+  notes?: string;
+  date?: string;
 }
 
 interface EtaViewProps {
@@ -26,6 +29,7 @@ export const EtaView = ({ activeTasks }: EtaViewProps) => {
       case 'On Time': return 'bg-success text-success-foreground';
       case 'Delayed': return 'bg-destructive text-destructive-foreground';
       case 'At Risk': return 'bg-warning text-warning-foreground';
+      case 'Pending': return 'bg-muted text-muted-foreground';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -55,6 +59,18 @@ export const EtaView = ({ activeTasks }: EtaViewProps) => {
                       <Badge variant="outline" className="text-xs">
                         {task.type}
                       </Badge>
+                      {task.priority && (
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            task.priority === 'High' ? 'border-red-300 text-red-700' :
+                            task.priority === 'Medium' ? 'border-yellow-300 text-yellow-700' :
+                            'border-green-300 text-green-700'
+                          }`}
+                        >
+                          {task.priority}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="w-4 h-4" />
@@ -77,12 +93,23 @@ export const EtaView = ({ activeTasks }: EtaViewProps) => {
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Scheduled:</span>
+                    <span className="text-muted-foreground">Date:</span>
+                    <div className="font-medium">{task.date || 'TBD'}</div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Time:</span>
                     <div className="font-medium">{task.scheduledTime}</div>
                   </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">ETA:</span>
                     <div className="font-medium">{task.eta}</div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Driver:</span>
+                    <div className="font-medium">{task.driver}</div>
                   </div>
                 </div>
 
@@ -97,6 +124,13 @@ export const EtaView = ({ activeTasks }: EtaViewProps) => {
                   <div className="text-sm">
                     <span className="text-muted-foreground">Items:</span>
                     <span className="ml-2">{task.itemDescription}</span>
+                  </div>
+                )}
+
+                {task.notes && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Notes:</span>
+                    <span className="ml-2">{task.notes}</span>
                   </div>
                 )}
 

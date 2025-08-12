@@ -1,4 +1,5 @@
 import { DriverCard } from "@/components/DriverCard";
+import { useDrivers } from "@/hooks/useDrivers";
 
 const mockDrivers = [
   {
@@ -38,6 +39,31 @@ const mockDrivers = [
 ];
 
 const DriversPage = () => {
+  const { drivers, loading, error } = useDrivers();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-semibold mb-2">Loading drivers...</div>
+          <div className="text-muted-foreground">Fetching data from Google Sheets</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-semibold mb-2 text-red-500">Error loading drivers</div>
+          <div className="text-muted-foreground">{error}</div>
+          <div className="text-sm text-muted-foreground mt-2">Check your Google Sheets connection</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-subtle p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -51,7 +77,7 @@ const DriversPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockDrivers.map((driver) => (
+          {drivers.map((driver) => (
             <DriverCard key={driver.id} driver={driver} />
           ))}
         </div>
@@ -61,25 +87,25 @@ const DriversPage = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-available-light rounded-lg">
               <div className="text-2xl font-bold text-available">
-                {mockDrivers.filter(d => d.status === 'Available').length}
+                {drivers.filter(d => d.status === 'Available').length}
               </div>
               <div className="text-sm text-muted-foreground">Available</div>
             </div>
             <div className="text-center p-4 bg-busy-light rounded-lg">
               <div className="text-2xl font-bold text-busy">
-                {mockDrivers.filter(d => d.status === 'Busy').length}
+                {drivers.filter(d => d.status === 'Busy').length}
               </div>
               <div className="text-sm text-muted-foreground">Busy</div>
             </div>
             <div className="text-center p-4 bg-accent-light rounded-lg">
               <div className="text-2xl font-bold text-accent-foreground">
-                {mockDrivers.reduce((sum, d) => sum + d.carCapacity, 0)}
+                {drivers.reduce((sum, d) => sum + d.carCapacity, 0)}
               </div>
               <div className="text-sm text-muted-foreground">Total Capacity</div>
             </div>
             <div className="text-center p-4 bg-success-light rounded-lg">
               <div className="text-2xl font-bold text-success">
-                {mockDrivers.reduce((sum, d) => sum + d.currentTasks, 0)}
+                {drivers.reduce((sum, d) => sum + d.currentTasks, 0)}
               </div>
               <div className="text-sm text-muted-foreground">Active Tasks</div>
             </div>

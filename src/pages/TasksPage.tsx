@@ -1,59 +1,64 @@
-import { useState } from "react";
 import { TaskForm } from "@/components/TaskForm";
-
-const mockDrivers = [
-  { id: '1', name: 'Ramesh Kumar', status: 'Available' },
-  { id: '2', name: 'Priya Sharma', status: 'Available' },
-  { id: '3', name: 'Vikash Singh', status: 'Busy' },
-  { id: '4', name: 'Suresh Patel', status: 'Busy' },
-];
-
-const mockTasks = [
-  {
-    id: '1',
-    type: 'Guest Pickup' as const,
-    location: 'Banton Railway Station',
-    time: '2024-12-15T15:30',
-    guestCount: 3,
-    assignedTo: 'Vikash Singh',
-    status: 'In Progress',
-    createdAt: '2024-12-15T14:00:00',
-  },
-  {
-    id: '2',
-    type: 'Item Pickup' as const,
-    location: 'Catering Service, Bhilwara',
-    time: '2024-12-15T17:00',
-    itemDescription: 'Wedding decoration items',
-    assignedTo: 'Suresh Patel',
-    status: 'Scheduled',
-    createdAt: '2024-12-15T14:15:00',
-  },
-  {
-    id: '3',
-    type: 'Guest Pickup' as const,
-    location: 'Ajmer Airport',
-    time: '2024-12-15T19:30',
-    guestCount: 5,
-    assignedTo: 'Auto-assign',
-    status: 'Pending',
-    createdAt: '2024-12-15T14:30:00',
-  },
-];
+import { useDrivers } from "@/hooks/useDrivers";
+import { useTasks } from "@/hooks/useTasks";
+import { useState, useMemo } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 const TasksPage = () => {
-  const [tasks, setTasks] = useState(mockTasks);
+  const { drivers, loading: driversLoading, error: driversError } = useDrivers();
+  const { tasks, loading: tasksLoading, error: tasksError, fetchTasks } = useTasks();
+  
+  // Sorting state
+  const [sortBy, setSortBy] = useState<'priority' | 'status' | 'date' | 'type' | 'createdAt'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const handleTaskCreate = (taskData: any) => {
-    const newTask = {
-      id: Date.now().toString(),
-      ...taskData,
-      status: 'Pending',
-      createdAt: new Date().toISOString(),
-      assignedTo: taskData.assignTo || 'Auto-assign',
-    };
-    setTasks(prev => [newTask, ...prev]);
+  const handleTaskCreate = async (taskData: any) => {
+    // Refresh the tasks list after creating a new task
+    await fetchTasks();
   };
+
+  // Sort tasks based on selected criteria
+  const sortedTasks = useMemo(() => {
+    if (!tasks || tasks.length === 0) return [];
+    
+    return [...tasks].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+      
+      switch (sortBy) {
+        case 'priority':
+          const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+          aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
+          bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+          break;
+        case 'status':
+          const statusOrder = { 'Pending': 1, 'In Progress': 2, 'Completed': 3, 'Scheduled': 4 };
+          aValue = statusOrder[a.status as keyof typeof statusOrder] || 0;
+          bValue = statusOrder[b.status as keyof typeof statusOrder] || 0;
+          break;
+        case 'date':
+          aValue = a.date ? new Date(a.date).getTime() : 0;
+          bValue = b.date ? new Date(b.date).getTime() : 0;
+          break;
+        case 'type':
+          aValue = a.type.toLowerCase();
+          bValue = b.type.toLowerCase();
+          break;
+        case 'createdAt':
+        default:
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
+          break;
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [tasks, sortBy, sortOrder]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -77,52 +82,161 @@ const TasksPage = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Task Creation Form */}
-          <div>
-            <TaskForm drivers={mockDrivers} onTaskCreate={handleTaskCreate} />
-          </div>
+        {/* Task Creation Form */}
+        <div>
+          {driversLoading ? (
+            <div className="bg-card rounded-lg p-6 shadow-card text-center">
+              <div className="text-lg font-semibold mb-2">Loading drivers...</div>
+              <div className="text-muted-foreground">Fetching data from Google Sheets</div>
+            </div>
+          ) : driversError ? (
+            <div className="bg-card rounded-lg p-6 shadow-card text-center">
+              <div className="text-lg font-semibold mb-2 text-red-500">Error loading drivers</div>
+              <div className="text-muted-foreground">{driversError}</div>
+            </div>
+          ) : (
+            <TaskForm onTaskCreate={handleTaskCreate} />
+          )}
+        </div>
 
-          {/* Task List */}
-          <div className="space-y-4">
+        {/* Task List */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Current Tasks</h2>
+            <button
+              onClick={fetchTasks}
+              disabled={tasksLoading}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+            >
+              {tasksLoading ? 'Refreshing...' : 'Refresh Tasks'}
+            </button>
+          </div>
+          
+          {/* Sorting Controls */}
+          <div className="flex items-center gap-4 bg-card p-4 rounded-lg border border-border">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Sort by:</span>
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Created Date</SelectItem>
+                  <SelectItem value="priority">Priority</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="date">Task Date</SelectItem>
+                  <SelectItem value="type">Task Type</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-secondary hover:bg-secondary/80 rounded-md transition-colors"
+            >
+              {sortOrder === 'asc' ? (
+                <>
+                  <ArrowUp className="w-4 h-4" />
+                  Ascending
+                </>
+              ) : (
+                <>
+                  <ArrowDown className="w-4 h-4" />
+                  Descending
+                </>
+              )}
+            </button>
+            
+            <div className="text-xs text-muted-foreground">
+              {sortedTasks.length} task{sortedTasks.length !== 1 ? 's' : ''} • 
+              Sorted by {sortBy === 'createdAt' ? 'Created Date' : 
+                         sortBy === 'priority' ? 'Priority' : 
+                         sortBy === 'status' ? 'Status' : 
+                         sortBy === 'date' ? 'Task Date' : 'Task Type'}
+            </div>
+          </div>
+          
+          {tasksLoading ? (
+            <div className="bg-card rounded-lg p-6 shadow-card text-center">
+              <div className="text-lg font-semibold mb-2">Loading tasks...</div>
+              <div className="text-muted-foreground">Fetching data from Google Sheets</div>
+            </div>
+          ) : tasksError ? (
+            <div className="bg-card rounded-lg p-6 shadow-card text-center">
+              <div className="text-lg font-semibold mb-2 text-red-500">Error loading tasks</div>
+              <div className="text-muted-foreground">{tasksError}</div>
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="bg-card rounded-lg p-6 shadow-card text-center">
+              <div className="text-lg font-semibold mb-2">No tasks found</div>
+              <div className="text-muted-foreground">Create your first task above</div>
+            </div>
+          ) : (
             <div className="space-y-4 max-h-[600px] overflow-y-auto">
-              {tasks.map((task) => (
+              {sortedTasks.map((task) => (
                 <div key={task.id} className="bg-card rounded-lg p-4 shadow-card border border-border">
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="font-semibold text-lg">{task.type}</h3>
                       <p className="text-muted-foreground">{task.location}</p>
                     </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(task.status)}`}>
-                      {task.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(task.status)}`}>
+                        {task.status}
+                      </span>
+                      {task.priority && (
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          task.priority === 'High' ? 'bg-red-100 text-red-800' :
+                          task.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {task.priority} Priority
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Scheduled:</span>
-                      <span className="ml-2 font-medium">
-                        {new Date(task.time).toLocaleString()}
-                      </span>
-                    </div>
+                    {task.type === 'Guest Pickup' && task.passengerName && (
+                      <div>
+                        <span className="text-muted-foreground">Guest:</span>
+                        <span className="ml-2 font-medium">{task.passengerName}</span>
+                        {task.passengerCount && (
+                          <span className="ml-2">({task.passengerCount} passengers)</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {task.type === 'Item Pickup' && task.itemName && (
+                      <div>
+                        <span className="text-muted-foreground">Item:</span>
+                        <span className="ml-2 font-medium">{task.itemName}</span>
+                      </div>
+                    )}
+                    
+                    {task.date && (
+                      <div>
+                        <span className="text-muted-foreground">Date:</span>
+                        <span className="ml-2 font-medium">{task.date}</span>
+                      </div>
+                    )}
+                    
+                    {task.time && (
+                      <div>
+                        <span className="text-muted-foreground">Time:</span>
+                        <span className="ml-2 font-medium">{task.time}</span>
+                      </div>
+                    )}
                     
                     <div>
                       <span className="text-muted-foreground">Assigned to:</span>
-                      <span className="ml-2 font-medium">{task.assignedTo}</span>
+                      <span className="ml-2 font-medium">{task.assignedDriver}</span>
                     </div>
 
-                    {task.guestCount && (
+                    {task.notes && (
                       <div>
-                        <span className="text-muted-foreground">Guests:</span>
-                        <span className="ml-2 font-medium">{task.guestCount} passengers</span>
-                      </div>
-                    )}
-
-                    {task.itemDescription && (
-                      <div>
-                        <span className="text-muted-foreground">Items:</span>
-                        <span className="ml-2">{task.itemDescription}</span>
+                        <span className="text-muted-foreground">Notes:</span>
+                        <span className="ml-2">{task.notes}</span>
                       </div>
                     )}
 
@@ -133,7 +247,7 @@ const TasksPage = () => {
                 </div>
               ))}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
