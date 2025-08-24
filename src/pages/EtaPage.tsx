@@ -1,8 +1,10 @@
 import { EtaView } from "@/components/EtaView";
 import { useTasks } from "@/hooks/useTasks";
 import { useMemo, useState, useEffect } from "react";
-import { MapboxService, TrafficAlert } from "@/lib/mapbox";
+import { TrafficService, TrafficAlert } from "@/lib/traffic";
 import { AlertTriangle, Clock, MapPin, Car } from "lucide-react";
+
+type EtaStatus = 'On Time' | 'Delayed' | 'At Risk' | 'Pending';
 
 const EtaPage = () => {
   const { tasks, loading, error } = useTasks();
@@ -35,12 +37,11 @@ const EtaPage = () => {
   }, [tasks]);
 
   // Calculate ETA status based on task data
-  const getEtaStatus = (task: any) => {
+  const getEtaStatus = (task: any): EtaStatus => {
     if (!task.time || !task.estimatedEta) return 'Pending';
     
     const scheduled = new Date(task.time);
     const estimated = new Date(task.estimatedEta);
-    const now = new Date();
     
     if (estimated < scheduled) return 'On Time';
     if (estimated > scheduled) return 'Delayed';
@@ -49,39 +50,33 @@ const EtaPage = () => {
 
   // Fetch traffic alerts for active tasks
   const fetchTrafficAlerts = async () => {
-    if (activeTasks.length === 0) return;
-    
-    setTrafficLoading(true);
-    try {
-      const allAlerts: TrafficAlert[] = [];
-      
-      // Get traffic alerts for each active task location
-      for (const task of activeTasks) {
-        // For now, we'll use simulated coordinates for Rajasthan area
-        // In a real implementation, you'd get coordinates from the task location
-        const coordinates: [number, number] = [75.7873, 26.9124]; // Bhilwara area
-        
-        const alerts = await MapboxService.getTrafficAlerts(coordinates);
-        allAlerts.push(...alerts);
-      }
-      
-      // Remove duplicates and sort by severity
-      const uniqueAlerts = allAlerts.filter((alert, index, self) => 
-        index === self.findIndex(a => a.description === alert.description)
-      );
-      
-      uniqueAlerts.sort((a, b) => {
-        const severityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-        return severityOrder[b.severity] - severityOrder[a.severity];
-      });
-      
-      setTrafficAlerts(uniqueAlerts);
-    } catch (error) {
-      console.error('Error fetching traffic alerts:', error);
-    } finally {
-      setTrafficLoading(false);
-    }
-  };
+	if (activeTasks.length === 0) return;
+	
+	setTrafficLoading(true);
+	try {
+		const allAlerts: TrafficAlert[] = [];
+		
+		for (const task of activeTasks) {
+			const alerts = await TrafficService.getTrafficAlertsForLocation(task.location);
+			allAlerts.push(...alerts);
+		}
+		
+		const uniqueAlerts = allAlerts.filter((alert, index, self) => 
+			index === self.findIndex(a => a.description === alert.description)
+		);
+		
+		uniqueAlerts.sort((a, b) => {
+			const severityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+			return severityOrder[b.severity] - severityOrder[a.severity];
+		});
+		
+		setTrafficAlerts(uniqueAlerts);
+	} catch (error) {
+		console.error('Error fetching traffic alerts:', error);
+	} finally {
+		setTrafficLoading(false);
+	}
+};
 
   // Fetch traffic alerts when active tasks change
   useEffect(() => {

@@ -8,6 +8,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      "/serpapi": {
+        target: "https://serpapi.com",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/serpapi/, ""),
+      },
+    },
   },
   plugins: [
     react(),

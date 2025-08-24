@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, User, MapPin, Search } from "lucide-react";
 import { GoogleSheetsService } from "@/lib/googleSheets";
-import { MapboxService, MapboxFeature } from "@/lib/mapbox";
+import { SerpService } from "@/lib/serp";
+import { LocationSuggestion } from "@/lib/locations";
 
 interface TaskFormData {
   type: 'Guest Pickup' | 'Item Pickup' | '';
@@ -39,36 +40,80 @@ export const TaskForm = ({ onTaskCreate }: TaskFormProps) => {
     priority: 'Medium',
   });
   
-  // Mapbox location search state
-  const [locationSuggestions, setLocationSuggestions] = useState<MapboxFeature[]>([]);
+  // Location search state (SerpAPI)
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Handle location input changes with Mapbox geocoding
-  const handleLocationChange = async (value: string) => {
+  // Cache helpers (sessionStorage)
+  const getCacheKey = (q: string) => `serpapi:IN:rajasthan:bhilwara:${q.trim().toLowerCase()}`;
+  const readFromCache = (q: string): LocationSuggestion[] | null => {
+    try {
+      const raw = sessionStorage.getItem(getCacheKey(q));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) return null;
+      return parsed as LocationSuggestion[];
+    } catch {
+      return null;
+    }
+  };
+  const writeToCache = (q: string, data: LocationSuggestion[]) => {
+    try {
+      if (Array.isArray(data) && data.length > 0) {
+        sessionStorage.setItem(getCacheKey(q), JSON.stringify(data));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // While typing, only update state; do not hit the API
+  const handleLocationChange = (value: string) => {
     setFormData(prev => ({ ...prev, location: value }));
-    
     if (value.length < 3) {
       setLocationSuggestions([]);
       setShowLocationSuggestions(false);
+    }
+  };
+
+  // Explicit search trigger (button/Enter)
+  const runLocationSearch = async () => {
+    let value = formData.location.trim();
+    if (value.length < 3) return;
+
+    // Handle "near me" queries by appending Bhilwara context and using a fixed center
+    const isNearMe = /\bnear me\b/i.test(value);
+    const cleaned = value.replace(/\bnear me\b/gi, '').trim();
+    const finalQuery = isNearMe ? `${cleaned} Bhilwara Rajasthan` : value;
+
+    const cached = readFromCache(finalQuery);
+    if (cached) {
+      setLocationSuggestions(cached);
+      setShowLocationSuggestions(cached.length > 0);
       return;
     }
 
     setIsSearching(true);
     try {
-      const suggestions = await MapboxService.searchLocations(value, 'IN'); // Restrict to India
+      const suggestions = await SerpService.searchLocations(finalQuery, 'IN', {
+        regionName: 'Rajasthan',
+        nearCenter: { lat: 25.340739, lng: 74.631318 }, // Bhilwara center
+      });
       setLocationSuggestions(suggestions);
       setShowLocationSuggestions(suggestions.length > 0);
+      writeToCache(finalQuery, suggestions);
     } catch (error) {
       console.error('Error searching locations:', error);
       setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
     } finally {
       setIsSearching(false);
     }
   };
 
   // Handle location selection
-  const selectLocation = (feature: MapboxFeature) => {
+  const selectLocation = (feature: LocationSuggestion) => {
     setFormData(prev => ({ ...prev, location: feature.place_name }));
     setLocationSuggestions([]);
     setShowLocationSuggestions(false);
@@ -220,20 +265,31 @@ export const TaskForm = ({ onTaskCreate }: TaskFormProps) => {
                 placeholder="Search for pickup/delivery location"
                 value={formData.location}
                 onChange={(e) => handleLocationChange(e.target.value)}
-                onFocus={() => setShowLocationSuggestions(true)}
-                className="pr-10"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    runLocationSearch();
+                  }
+                }}
+                className="pr-14"
               />
-              {isSearching ? (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={runLocationSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-50 px-2 py-1 text-xs rounded-md bg-secondary hover:bg-secondary/80 pointer-events-auto focus:outline-none focus:ring-0"
+                aria-label="Search locations"
+              >
+                {isSearching ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              )}
+                ) : (
+                  <Search className="w-4 h-4 text-gray-700" />
+                )}
+              </button>
               
               {/* Location Suggestions */}
               {showLocationSuggestions && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-40 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                   {locationSuggestions.map((feature, index) => (
                     <div
                       key={feature.id}
@@ -256,7 +312,7 @@ export const TaskForm = ({ onTaskCreate }: TaskFormProps) => {
               )}
             </div>
             <div className="text-xs text-muted-foreground">
-              💡 Tip: Start typing to search for locations (e.g., "Bhilwara", "Ajmer Airport")
+              💡 Tip: Type full query (e.g., "Surya Mahal Bhilwara Rajasthan") and press Enter or click the search button.
             </div>
           </div>
 
